@@ -10,14 +10,13 @@ class CustomUserCreationForm(UserCreationForm):
         self.fields["password1"].label = "Mot de passe"
         self.fields["password2"].label = "Confirmer le mot de passe"
         for field in self.fields:
-            self.fields[str(field)].widget.attrs["placeholder"] = self.fields[str(field)].label
             self.fields[str(field)].help_text = None
 
         self.label_suffix = ""
 
     class Meta:
         model = MyUser
-        fields = ["username", "date_of_birth", "password1", "password2"]
+        fields = ["username", "date_of_birth", "rgpd_consent" "password1", "password2"]
 
 
 class CustomUserChangeForm(UserChangeForm):

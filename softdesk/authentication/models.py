@@ -1,5 +1,7 @@
 from django.contrib.auth.models import BaseUserManager, AbstractUser
 from django.db import models
+from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -19,8 +21,22 @@ class UserManager(BaseUserManager):
 class MyUser(AbstractUser):
 
     date_of_birth = models.DateField()
+    rgpd_consent = models.BooleanField(default=False)
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["date_of_birth"]
+    REQUIRED_FIELDS = ["date_of_birth", "rgpd_consent"]
+
+    @property
+    def age(self):
+        today = timezone.now().date()
+        age = int(
+            today.year
+            - (self.date_of_birth.year)
+            - ((today.month, today.day) < (self.date_of_birth.month, self.date_of_birth.day))
+        )
+        if age < 15:
+            raise ValidationError("Vous devez avoir au moins 15ans pour vous inscrire.")
+        else:
+            return age
 
     def __str__(self):
         return self.username
