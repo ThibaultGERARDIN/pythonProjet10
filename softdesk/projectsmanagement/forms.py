@@ -3,9 +3,10 @@ from .models import Project, Issue, Comment, Contributor
 
 
 class ProjectForm(forms.ModelForm):
+
     class Meta:
         model = Project
-        fields = ("name", "description")
+        fields = ("name", "description", "contributors")
 
 
 class ContributorForm(forms.ModelForm):

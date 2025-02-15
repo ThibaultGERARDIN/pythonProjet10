@@ -6,6 +6,7 @@ class Project(models.Model):
     name = models.CharField(max_length=255)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
+    author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="author")
     contributors = models.ManyToManyField(get_user_model(), through="Contributor")
 
     def __str__(self):
@@ -13,13 +14,9 @@ class Project(models.Model):
 
 
 class Contributor(models.Model):
-    ROLE_CHOICES = [
-        ("AUTHOR", "Author"),
-        ("CONTRIBUTOR", "Contributor"),
-    ]
+
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
-    role = models.CharField(max_length=15, choices=ROLE_CHOICES, default="CONTRIBUTOR")
 
     class Meta:
         unique_together = ("user", "project")
