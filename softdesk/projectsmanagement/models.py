@@ -3,23 +3,32 @@ from django.contrib.auth import get_user_model
 
 
 class Project(models.Model):
+    TYPE_CHOICES = [
+        ("BACK_END", "Back-end"),
+        ("FRONT_END", "Front-end"),
+        ("IOS", "iOS"),
+        ("ANDROID", "Android"),
+    ]
+
     name = models.CharField(max_length=255)
     description = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
-    author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="author")
-    contributors = models.ManyToManyField(get_user_model(), through="Contributor")
+    author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="owned_projects")
+    type = models.CharField(max_length=15, choices=TYPE_CHOICES)
 
     def __str__(self):
         return self.name
 
 
-class Contributor(models.Model):
-
-    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
-    project = models.ForeignKey(Project, on_delete=models.CASCADE)
+class ProjectContributor(models.Model):
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="contributors")
+    user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="projects_contributed_to")
 
     class Meta:
-        unique_together = ("user", "project")
+        unique_together = ("project", "user")
+
+    def __str__(self):
+        return f"{self.user.username} - {self.project.name}"
 
 
 class Issue(models.Model):
@@ -41,6 +50,7 @@ class Issue(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField()
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name="issues")
+    author = models.ForeignKey(get_user_model(), on_delete=models.CASCADE, related_name="created_issues")
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default="TODO")
     priority = models.CharField(max_length=10, choices=PRIORITY_CHOICES, default="MEDIUM")
     assignee = models.ForeignKey(
