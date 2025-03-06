@@ -1,11 +1,16 @@
 from .models import MyUser
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
-from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 
 class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MyUser
+        fields = ("id", "username")
+
+
+class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = MyUser
         fields = ("id", "username", "age", "rgpd_consent")
@@ -20,7 +25,7 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MyUser
-        fields = ("username", "password", "password2", "date_of_birth", "rgpd_consent")
+        fields = ("username", "password", "password2", "date_of_birth", "can_be_contacted", "can_data_be_shared")
 
     def validate(self, attrs):
         if attrs["password"] != attrs["password2"]:
@@ -40,7 +45,8 @@ class RegisterSerializer(serializers.ModelSerializer):
             user = MyUser.objects.create(
                 username=validated_data["username"],
                 date_of_birth=validated_data["date_of_birth"],
-                rgpd_consent=validated_data["rgpd_consent"],
+                can_be_contacted=validated_data["can_be_contacted"],
+                can_data_be_shared=validated_data["can_data_be_shared"],
             )
 
             user.set_password(validated_data["password"])

@@ -20,9 +20,10 @@ class UserManager(BaseUserManager):
 class MyUser(AbstractUser):
 
     date_of_birth = models.DateField(verbose_name="Date de naissance")
-    rgpd_consent = models.BooleanField(default=False, verbose_name="Consentement partage de données")
+    can_be_contacted = models.BooleanField(default=False, verbose_name="J'accepte d'être contacté.")
+    can_data_be_shared = models.BooleanField(default=False, verbose_name="J'accepte de partager mes données.")
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = ["date_of_birth", "rgpd_consent"]
+    REQUIRED_FIELDS = ["date_of_birth", "can_be_contacted", "can_data_be_shared"]
 
     @property
     def age(self):

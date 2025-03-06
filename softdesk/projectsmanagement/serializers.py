@@ -11,32 +11,29 @@ class ProjectContributorSerializer(serializers.ModelSerializer):
         fields = ["user"]
 
 
-class ProjectSerializer(serializers.ModelSerializer):
-    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
-    contributors = serializers.SerializerMethodField()
+class CommentSerializer(serializers.ModelSerializer):
+    author = serializers.ReadOnlyField(source="author.username")
+    issue = serializers.PrimaryKeyRelatedField(queryset=Issue.objects.all())
 
     class Meta:
-        model = Project
-        fields = ["name", "type", "description", "author", "contributors"]
+        model = Comment
+        fields = ["id", "issue", "author", "content", "created_at"]
 
-    def get_contributors(self, obj):
-        """
-        Returns a list of contributor usernames.
-        """
-        return [contributor.user.username for contributor in obj.contributors.all()]
 
-    def create(self, validated_data):
-        contributors_data = self.initial_data.get("contributors", [])
-        request = self.context.get("request")
-        author = request.user
+class IssueReducedSerializer(serializers.ModelSerializer):
+    author = serializers.ReadOnlyField(source="author.username")
+    assignee = serializers.SlugRelatedField(
+        slug_field="username", queryset=get_user_model().objects.all(), required=False, allow_null=True
+    )
 
-        project = Project.objects.create(author=author, **validated_data)
-
-        for username in contributors_data:
-            user = get_user_model().objects.get(username=username)
-            ProjectContributor.objects.create(project=project, user=user)
-
-        return project
+    class Meta:
+        model = Issue
+        fields = [
+            "title",
+            "author",
+            "assignee",
+            "priority",
+        ]
 
 
 class IssueSerializer(serializers.ModelSerializer):
@@ -61,26 +58,33 @@ class IssueSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
-    def create(self, validated_data):
-        request = self.context.get("request")
-        if not request or request.user not in validated_data["project"].contributors.all():
-            raise serializers.ValidationError("Only contributors can create issues.")
-        validated_data["author"] = request.user
-        return super().create(validated_data)
 
-
-class CommentSerializer(serializers.ModelSerializer):
-    author = serializers.ReadOnlyField(source="author.username")
-    issue = serializers.PrimaryKeyRelatedField(queryset=Issue.objects.all())
+class ProjectSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    contributors = serializers.SerializerMethodField()
+    issues = IssueReducedSerializer(many=True, read_only=True)
 
     class Meta:
-        model = Comment
-        fields = ["id", "issue", "author", "description", "created_at"]
+        model = Project
+        fields = ["id", "name", "type", "description", "author", "contributors", "created_at", "issues"]
 
-    def create(self, validated_data):
-        request = self.context.get("request")
-        issue = validated_data["issue"]
-        if not request or request.user not in issue.project.contributors.all():
-            raise serializers.ValidationError("Only contributors can add comments.")
-        validated_data["author"] = request.user
-        return super().create(validated_data)
+    def get_contributors(self, obj):
+        """
+        Returns a list of contributor usernames.
+        """
+        return [contributor.user.username for contributor in obj.contributors.all()]
+
+
+class ProjectListSerializer(serializers.ModelSerializer):
+    author = serializers.SlugRelatedField(slug_field="username", read_only=True)
+    contributors = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Project
+        fields = ["id", "name", "author", "contributors"]
+
+    def get_contributors(self, obj):
+        """
+        Returns a list of contributor usernames.
+        """
+        return [contributor.user.username for contributor in obj.contributors.all()]
