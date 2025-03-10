@@ -1,4 +1,4 @@
-from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from .models import MyUser
 from .serializers import UserSerializer, UserDetailSerializer
 from .serializers import RegisterSerializer
@@ -6,8 +6,6 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import AllowAny
-
-
 
 
 class MultipleSerializerMixin:

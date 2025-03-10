@@ -34,11 +34,14 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
     detail_serializer_class = ProjectSerializer
 
     def get_permissions(self):
+
         permission_classes = {
             "retrieve": [IsProjectContributor()],
             "update": [IsAuthorOrReadOnly()],
             "destroy": [IsAuthorOrReadOnly()],
             "partial_update": [IsAuthorOrReadOnly()],
+            "add_contributors": [IsAuthorOrReadOnly()],
+            "remove_contributors": [IsAuthorOrReadOnly()],
         }
         return permission_classes.get(self.action, [IsAuthenticated()])
 
@@ -87,7 +90,7 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
             status=status.HTTP_201_CREATED,
         )
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthorOrReadOnly()])
+    @action(detail=True, methods=["post"])
     def add_contributors(self, request, pk=None):
         """
         Custom action to add contributors to an existing project.
@@ -115,6 +118,44 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
 
         return Response(
             {"message": "Contributors added successfully.", "added_contributors": added_users},
+            status=status.HTTP_200_OK,
+        )
+
+    @action(detail=True, methods=["post"])
+    def remove_contributors(self, request, pk=None):
+        """
+        Custom action to remove contributors from an existing project.
+        Request format:
+        {
+            "contributors": ["username1", "username2"]
+        }
+        """
+        project = self.get_object()
+
+        contributor_usernames = request.data.get("contributors", [])
+
+        if not contributor_usernames:
+            return Response({"error": "No contributors provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        removed_users = []
+        for username in contributor_usernames:
+            try:
+                user = get_user_model().objects.get(username=username)
+                contributor = ProjectContributor.objects.filter(project=project, user=user)
+
+                if contributor.exists():
+                    contributor.delete()
+                    removed_users.append(username)
+                else:
+                    return Response(
+                        {"error": f"User '{username}' is not a contributor."}, status=status.HTTP_400_BAD_REQUEST
+                    )
+
+            except get_user_model().DoesNotExist:
+                return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response(
+            {"message": "Contributors removed successfully.", "removed_contributors": removed_users},
             status=status.HTTP_200_OK,
         )
 
@@ -162,7 +203,7 @@ class IssueViewSet(MultipleSerializerMixin, ModelViewSet):
         serializer.save(author=user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated()])
+    @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
     def update_status(self, request, pk=None):
         """
         Custom action to allow only the assignee and author to update the issue status.
