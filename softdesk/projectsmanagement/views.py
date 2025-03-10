@@ -1,11 +1,18 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.decorators import action
 from django.contrib.auth import get_user_model
 from .models import Project, Issue, Comment, ProjectContributor
-from .serializers import ProjectSerializer, ProjectListSerializer, IssueSerializer, CommentSerializer
+from .serializers import (
+    ProjectSerializer,
+    ProjectListSerializer,
+    IssueSerializer,
+    IssueListSerializer,
+    CommentListSerializer,
+    CommentSerializer,
+)
 from .permissions import IsProjectContributor, IsAuthorOrReadOnly
 from .utils import get_viewable_projects, check_contributors
 
@@ -15,7 +22,8 @@ class MultipleSerializerMixin:
     detail_serializer_class = None
 
     def get_serializer_class(self):
-        if self.action == "retrieve" and self.detail_serializer_class is not None:
+        # Use the detailed serializer for retrieving, creating, or updating projects
+        if self.action in ["retrieve", "create", "update", "partial_update"] and self.detail_serializer_class:
             return self.detail_serializer_class
         return super().get_serializer_class()
 
@@ -34,23 +42,52 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
         }
         return permission_classes.get(self.action, [IsAuthenticated()])
 
-    def create(self, validated_data):
-        contributors_data = self.initial_data.get("contributors", [])
-        request = self.context.get("request")
-        if not request or not request.user:
-            raise serializers.ValidationError("User must be authenticated.")
+    def create(self, request, *args, **kwargs):
+        """
+        Request format:
+        {
+            "name": "projectname",
+            "description": "Description of the project",
+            "type": "BACK_END / FRONT_END / IOS / ANDROID",
+            "contributors": ["username1", "username2"]
+        }
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        validated_data["author"] = request.user
-        project = Project.objects.create(**validated_data)
-        ProjectContributor.objects.create(project=project, user=request.user)
+        contributors_data = request.data.get("contributors", [])
+        user = request.user
 
+        if not user or not user.is_authenticated:
+            return Response({"error": "User must be authenticated."}, status=status.HTTP_403_FORBIDDEN)
+
+        # Save project with the validated data, setting the author correctly
+        project = serializer.save(author=user)
+
+        # Add the author as a contributor
+        ProjectContributor.objects.create(project=project, user=user)
+
+        # Add additional contributors
+        added_users = []
         for username in contributors_data:
-            user = get_user_model().objects.get(username=username)
-            ProjectContributor.objects.create(project=project, user=user)
+            try:
+                contributor = get_user_model().objects.get(username=username)
+                if not ProjectContributor.objects.filter(project=project, user=contributor).exists():
+                    ProjectContributor.objects.create(project=project, user=contributor)
+                    added_users.append(username)
+            except get_user_model().DoesNotExist:
+                return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
-        return project
+        return Response(
+            {
+                "message": "Project created successfully.",
+                "project": ProjectSerializer(project).data,
+                "added_contributors": added_users,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthorOrReadOnly])
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthorOrReadOnly()])
     def add_contributors(self, request, pk=None):
         """
         Custom action to add contributors to an existing project.
@@ -82,8 +119,9 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
         )
 
 
-class IssueViewSet(ModelViewSet):
-    serializer_class = IssueSerializer
+class IssueViewSet(MultipleSerializerMixin, ModelViewSet):
+    serializer_class = IssueListSerializer
+    detail_serializer_class = IssueSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
 
     def get_queryset(self):
@@ -94,37 +132,37 @@ class IssueViewSet(ModelViewSet):
         projects_list = get_viewable_projects(user)
         return Issue.objects.filter(project__in=projects_list)
 
-    def validate_assignee(self, value):
-        """Ensure the assignee is a contributor of the project's issue."""
-        project = self.instance.project if self.instance else self.initial_data.get("project")
+    def create(self, request, *args, **kwargs):
+        """
+        Ensure only the project author and contributors can create issues.
+        Request format:
+        {
+            "title": "issue title",
+            "description": "Description of the issue",
+            "project": ID of related project (int)
+            "status": "TODO" / "IN_PROGRESS" / "DONE",
+            "priority": "LOW" / "MEDIUM" / "HIGH",
+            "tag": "BUG" / "TASK" / "IMPROVEMENT",
+            "assignee": "username"
+        }
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
 
-        if not project:
-            raise serializers.ValidationError("Vous devez spécifier un projet auquel l'issue est rattachée.")
-
-        if isinstance(project, int) or isinstance(project, str):
-            try:
-                project = Project.objects.get(id=project)
-            except Project.DoesNotExist:
-                raise serializers.ValidationError("Le projet n'existe pas.")
-
-        contributors_list = check_contributors(project)
-        if value not in contributors_list:
-            raise serializers.ValidationError("L'assignee doit être un contributeur du projet.")
-
-        return value
-
-    def create(self, validated_data):
-        request = self.context.get("request")
-        project = validated_data["project"]
-        project_author = project.author
+        project = serializer.validated_data["project"]
+        user = request.user
         contributors_list = check_contributors(project)
 
-        if not request or (request.user not in contributors_list and request.user != project_author):
-            raise serializers.ValidationError("Seul l'auteur et les contributeurs du projet peuvent créer des issues.")
-        validated_data["author"] = request.user
-        return super().create(validated_data)
+        if user not in contributors_list and user != project.author:
+            return Response(
+                {"detail": "Only the project author and contributors can create issues."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
 
-    @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated])
+        serializer.save(author=user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated()])
     def update_status(self, request, pk=None):
         """
         Custom action to allow only the assignee and author to update the issue status.
@@ -143,7 +181,7 @@ class IssueViewSet(ModelViewSet):
 
         if new_status not in dict(Issue.STATUS_CHOICES):
             return Response(
-                {"detail": "Invalid status. Choose from: TODO, IN_PROGRESS, FINISHED."},
+                {"detail": "Invalid status. Choose from: TODO, IN_PROGRESS, DONE."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -153,8 +191,9 @@ class IssueViewSet(ModelViewSet):
         return Response({"status": issue.status}, status=status.HTTP_200_OK)
 
 
-class CommentViewSet(ModelViewSet):
-    serializer_class = CommentSerializer
+class CommentViewSet(MultipleSerializerMixin, ModelViewSet):
+    serializer_class = CommentListSerializer
+    detail_serializer_class = CommentSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
 
     def get_queryset(self):
@@ -167,13 +206,28 @@ class CommentViewSet(ModelViewSet):
 
         return Comment.objects.filter(issue__in=viewable_issues)
 
-    def create(self, validated_data):
-        request = self.context.get("request")
-        issue = validated_data["issue"]
+    def create(self, request, *args, **kwargs):
+        """
+        Ensure only the project author and contributors can create comments.
+
+        Request format:
+        {
+            "content": "Content of the comment",
+            "issue": ID of related issue (int)
+        }
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        issue = serializer.validated_data["issue"]
         project = issue.project
         contributors_list = check_contributors(project)
 
-        if not request or request.user not in contributors_list:
-            raise serializers.ValidationError("Seul l'auteur et les contributeurs du projet peuvent créer des issues.")
-        validated_data["author"] = request.user
-        return super().create(validated_data)
+        if request.user not in contributors_list:
+            return Response(
+                {"detail": "Only the author and project contributors can create comments."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer.save(author=request.user)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)

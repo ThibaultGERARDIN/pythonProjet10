@@ -6,16 +6,12 @@
 2. Rendez-vous depuis un terminal à la racine du répertoire pythonProjet9 avec la commande `cd pythonProjet10`
 3. Créez un environnement virtuel pour le projet avec `python -m venv env` sous windows ou `python3 -m venv env` sous macos ou linux.
 4. Activez l'environnement virtuel avec `env/Scripts/activate` sous windows ou `source env/bin/activate` sous macos ou linux.
-5. Installez les dépendances du projet avec la commande `pip install -r requirements.txt`
+5. Si vous avez déjà installé poetry : installez les dépendances du projet avec la commande `poetry install`
+Si Poetry n'est pas encore installé, suivez les instructions sur la documentation officielle : https://python-poetry.org/docs/
 6. Entrez dans le dossier de l'application avec la commande `cd litrevu`
-7. Démarrez le serveur avec `python manage.py runserver`
+7. Si vous le souhaitez vous pouvez créer un superuser (pour accéder à django-admin) en utilisant la commande `python manage.py createsuperuser`
+8. Démarrez le serveur avec `python manage.py runserver`
 
-Une fois les étapes précédentes effectuées, vous pouvez accéder à l'application en suivant l'adresse proposée dans la console (typiquement `http://127.0.0.1:8000/`). Vous pouvez ensuite naviguer à votre guise, en créant un compte utilisateur.
 
-Toute connexion ultérieure ne nécessitera de répeter que les étapes 2, 4, 6 et 7 (si vous avez quitté le serveur entre temps)
+Pour tester les différents endpoints vous pouvez utiliser l'outil Postman (ou tout autre outil équivalent).
 
-Si vous souhaitez suivre des utilisateurs pour tester cette fonctionnalité (et voir / répondre à leurs posts) vous pouvez suivre les utilisateurs suivants créés pour la phase de développement :
-    -admin
-    -testuser
-    -testuser2
-    -nouveauuser

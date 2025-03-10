@@ -13,7 +13,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = MyUser
-        fields = ("id", "username", "age", "rgpd_consent")
+        fields = ("id", "username", "age", "can_data_be_shared", "can_be_contacted")
 
 
 class RegisterSerializer(serializers.ModelSerializer):

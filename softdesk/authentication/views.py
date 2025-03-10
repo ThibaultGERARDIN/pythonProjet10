@@ -5,13 +5,9 @@ from .serializers import RegisterSerializer
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework import status
-from django.contrib.auth.views import LoginView
-from django.shortcuts import redirect
+from rest_framework.permissions import AllowAny
 
 
-class CustomLoginView(LoginView):
-    def get_success_url(self):
-        return redirect("/api/projects/")
 
 
 class MultipleSerializerMixin:
@@ -27,6 +23,7 @@ class MultipleSerializerMixin:
 class RegisterView(generics.CreateAPIView):
     queryset = MyUser.objects.all()
     serializer_class = RegisterSerializer
+    permission_classes = [AllowAny]
 
 
 class UserViewSet(MultipleSerializerMixin, ReadOnlyModelViewSet):
@@ -40,11 +37,6 @@ class UserViewSet(MultipleSerializerMixin, ReadOnlyModelViewSet):
         if user.can_data_be_shared is not True:
             return Response(
                 {"detail": "Cet utilisateur ne souhaite pas partager ses informations"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-        elif user.can_be_contacted is not True:
-            return Response(
-                {"detail": "Cet utilisateur ne souhaite pas pouvoir être contacté"},
                 status=status.HTTP_403_FORBIDDEN,
             )
         return super().retrieve(self, request, *args, **kwargs)
