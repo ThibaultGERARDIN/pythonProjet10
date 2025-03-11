@@ -19,6 +19,17 @@ class MultipleSerializerMixin:
 
 
 class RegisterView(generics.CreateAPIView):
+    """Request format:
+    {
+        "username": "username",
+        "password1": "password",
+        "password2": "password",
+        "date_of_birth": "TYYY/MM/DD",
+        "can_be_contacted": "True" or "False", (false by default)
+        "can_data_be_shared": "True" or "False" (false by default)
+    }
+    """
+
     queryset = MyUser.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [AllowAny]

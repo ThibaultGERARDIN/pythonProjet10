@@ -62,7 +62,7 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
         user = request.user
 
         if not user or not user.is_authenticated:
-            return Response({"error": "User must be authenticated."}, status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "Vous devez être authentifié."}, status=status.HTTP_403_FORBIDDEN)
 
         # Save project with the validated data, setting the author correctly
         project = serializer.save(author=user)
@@ -79,11 +79,13 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
                     ProjectContributor.objects.create(project=project, user=contributor)
                     added_users.append(username)
             except get_user_model().DoesNotExist:
-                return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"error": f"L'utilisateur '{username}' n'existe pas."}, status=status.HTTP_404_NOT_FOUND
+                )
 
         return Response(
             {
-                "message": "Project created successfully.",
+                "message": "Le projet a bien été créé",
                 "project": ProjectSerializer(project).data,
                 "added_contributors": added_users,
             },
@@ -104,7 +106,7 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
         contributor_usernames = request.data.get("contributors", [])
 
         if not contributor_usernames:
-            return Response({"error": "No contributors provided."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Vous n'avez pas fourni d'utilisateur."}, status=status.HTTP_400_BAD_REQUEST)
 
         added_users = []
         for username in contributor_usernames:
@@ -117,7 +119,7 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
                 return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
 
         return Response(
-            {"message": "Contributors added successfully.", "added_contributors": added_users},
+            {"message": "Contributeur(s) ajouté(s) avec succès.", "added_contributors": added_users},
             status=status.HTTP_200_OK,
         )
 
@@ -135,7 +137,7 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
         contributor_usernames = request.data.get("contributors", [])
 
         if not contributor_usernames:
-            return Response({"error": "No contributors provided."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Vous n'avez pas fourni d'utilisateur."}, status=status.HTTP_400_BAD_REQUEST)
 
         removed_users = []
         for username in contributor_usernames:
@@ -148,14 +150,17 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
                     removed_users.append(username)
                 else:
                     return Response(
-                        {"error": f"User '{username}' is not a contributor."}, status=status.HTTP_400_BAD_REQUEST
+                        {"error": f"L'utilisateur '{username}' n'est pas un contributeur."},
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
 
             except get_user_model().DoesNotExist:
-                return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"error": f"L'utilisateur '{username}' n'existe pas."}, status=status.HTTP_404_NOT_FOUND
+                )
 
         return Response(
-            {"message": "Contributors removed successfully.", "removed_contributors": removed_users},
+            {"message": "Le(s) contributeur(s) ont été retiré(s) du projet.", "removed_contributors": removed_users},
             status=status.HTTP_200_OK,
         )
 
@@ -183,7 +188,7 @@ class IssueViewSet(MultipleSerializerMixin, ModelViewSet):
             "project": ID of related project (int)
             "status": "TODO" / "IN_PROGRESS" / "DONE",
             "priority": "LOW" / "MEDIUM" / "HIGH",
-            "tag": "BUG" / "TASK" / "IMPROVEMENT",
+            "tag": "BUG" / "TASK" / "FEATURE",
             "assignee": "username"
         }
         """
@@ -196,7 +201,7 @@ class IssueViewSet(MultipleSerializerMixin, ModelViewSet):
 
         if user not in contributors_list and user != project.author:
             return Response(
-                {"detail": "Only the project author and contributors can create issues."},
+                {"detail": "Seuls l'auteur ou les contributeurs du projet peuvent créer des issues."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -215,14 +220,14 @@ class IssueViewSet(MultipleSerializerMixin, ModelViewSet):
 
         if request.user not in [issue.assignee, issue.author]:
             return Response(
-                {"detail": "Only the assignee or the author can update the status."}, status=status.HTTP_403_FORBIDDEN
+                {"detail": "Seuls l'assignee ou l'auteur peuvent modifier le status."}, status=status.HTTP_403_FORBIDDEN
             )
 
         new_status = request.data.get("status", None)
 
         if new_status not in dict(Issue.STATUS_CHOICES):
             return Response(
-                {"detail": "Invalid status. Choose from: TODO, IN_PROGRESS, DONE."},
+                {"detail": "Status invalide. Choisissez parmis: TODO, IN_PROGRESS, DONE."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -266,7 +271,7 @@ class CommentViewSet(MultipleSerializerMixin, ModelViewSet):
 
         if request.user not in contributors_list:
             return Response(
-                {"detail": "Only the author and project contributors can create comments."},
+                {"detail": "Seuls l'auteur ou les contributeurs du projet peuvent créer des commentaires."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 

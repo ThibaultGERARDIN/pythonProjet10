@@ -46,7 +46,7 @@ class Issue(models.Model):
     TAG_CHOICES = [
         ("BUG", "Bug"),
         ("TASK", "Task"),
-        ("IMPROVEMENT", "Improvement"),
+        ("FEATURE", "Feature"),
     ]
     title = models.CharField(max_length=255)
     description = models.TextField()
