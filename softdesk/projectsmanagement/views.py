@@ -116,7 +116,14 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
                     ProjectContributor.objects.create(project=project, user=user)
                     added_users.append(username)
             except get_user_model().DoesNotExist:
-                return Response({"error": f"User '{username}' does not exist."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {
+                        "error": f"User '{username}' does not exist.",
+                        "message": f"{', '.join(added_users) + 'ont' if added_users else 'Aucun contributeurs n\'a'}"
+                        " été ajouté(s) au projet.",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
+                )
 
         return Response(
             {"message": "Contributeur(s) ajouté(s) avec succès.", "added_contributors": added_users},
@@ -150,13 +157,22 @@ class ProjectViewSet(MultipleSerializerMixin, ModelViewSet):
                     removed_users.append(username)
                 else:
                     return Response(
-                        {"error": f"L'utilisateur '{username}' n'est pas un contributeur."},
+                        {
+                            "error": f"L'utilisateur '{username}' n'est pas un contributeur.",
+                            "message": f"{', '.join(removed_users) + 'ont' if removed_users else 'Aucun contributeurs n\'a'}"
+                            " été retiré(s) du projet.",
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
             except get_user_model().DoesNotExist:
                 return Response(
-                    {"error": f"L'utilisateur '{username}' n'existe pas."}, status=status.HTTP_404_NOT_FOUND
+                    {
+                        "error": f"L'utilisateur '{username}' n'existe pas.",
+                        "message": f"{', '.join(removed_users) + 'ont' if removed_users else 'Aucun contributeurs n\'a'}"
+                        " été retiré(s) du projet.",
+                    },
+                    status=status.HTTP_404_NOT_FOUND,
                 )
 
         return Response(
